@@ -1,0 +1,13 @@
+[package]
+name = "binaer_rechner"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eframe = "0.31"
+
+[package.metadata.bundle]
+name = "8-Bit Binärrechner"
+identifier = "de.unterricht.binaerrechner"
+category = "public.app-category.education"
+short_description = "Interaktiver 8-Bit-Binärrechner für den Unterricht"
