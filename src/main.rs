@@ -4,8 +4,8 @@ fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("Interaktiver 8-Bit-Binärrechner (1 Byte)")
-            .with_inner_size([920.0, 620.0])
-            .with_min_inner_size([780.0, 520.0]),
+            .with_inner_size([1020.0, 720.0])
+            .with_min_inner_size([1020.0, 720.0]),
         ..Default::default()
     };
 
@@ -21,11 +21,15 @@ fn main() -> eframe::Result<()> {
 
 struct BinaryCalculatorApp {
     value: u8,
+    is_simple_mode: bool,
 }
 
 impl Default for BinaryCalculatorApp {
     fn default() -> Self {
-        Self { value: 22 }
+        Self {
+            value: 65,
+            is_simple_mode: true,
+        }
     }
 }
 
@@ -93,9 +97,35 @@ impl eframe::App for BinaryCalculatorApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.spacing_mut().item_spacing = Vec2::new(10.0, 14.0);
 
-            // --- HEADER ---
+            // --- SIMPEL FULL MODE TOGGLE (Toggle Button - fixe Größe) ---
+            egui::Frame::group(ui.style())
+                .fill(Color32::from_rgb(15, 18, 27))
+                .stroke(Stroke::new(1.0, Color32::from_rgb(40, 44, 55)))
+                .corner_radius(CornerRadius::same(6))
+                .inner_margin(8.0)
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        let is_active = self.is_simple_mode;
+
+                        // Toggle-Button: grau = Full Mode, grün = Simple Mode
+                        if ui.add(egui::Button::new(
+                            RichText::new(if is_active { "◉ Einfacher Modus" } else { "○ Vollständiger Modus" }).size(12.0))
+                                .fill(if is_active { Color32::from_rgb(28, 96, 75) } else { Color32::from_rgb(40, 44, 55) })
+                                .stroke(Stroke::new(1.5, if is_active { Color32::WHITE } else { Color32::from_rgb(71, 85, 105) }))
+                        ).clicked() {
+                            self.is_simple_mode = !self.is_simple_mode;
+                        }
+
+                        // Kleiner Tooltip/Label daneben (optional, für Erklärung) – fixe Größe
+                        ui.label(RichText::new("↔").font(FontId::monospace(14.0)).color(Color32::from_rgb(148, 163, 184)));
+                    });
+                });
+
+            ui.separator();
+
+            // --- TITEL (fixe Fontgröße) ---
             ui.vertical_centered(|ui| {
-                ui.add_space(4.0);
+                ui.add_space(8.0);
                 ui.label(
                     RichText::new("Die Sprache der Computer: 8-Bit-Binärrechner")
                         .font(FontId::proportional(24.0))
@@ -111,7 +141,7 @@ impl eframe::App for BinaryCalculatorApp {
 
             ui.separator();
 
-            // --- DIE 8 Karten (VON LINKS 128 BIS RECHTS 1) ---
+            // --- DIE 8 KARTEN (VON LINKS 128 BIS RECHTS 1) ---
             ui.horizontal(|ui| {
                 let available_width = ui.available_width();
                 let spacing = 8.0;
@@ -168,14 +198,17 @@ impl eframe::App for BinaryCalculatorApp {
                             .layout(egui::Layout::top_down(egui::Align::Center)),
                     );
 
+                    // Kartennummer – fix Größe in beiden Modi
                     child_ui.label(
                         RichText::new(format!("Karte {}", card_number))
                             .font(FontId::proportional(12.0))
                             .color(Color32::from_rgb(148, 163, 184)),
                     );
 
+                    // Potenzzahl (2^7) – fixe Größe, Platzhalter im Simple Mode
+                    let pot_text = if self.is_simple_mode { " ".to_string() } else { format!("2^{}", bit_index).to_string() };
                     child_ui.label(
-                        RichText::new(format!("2^{}", bit_index))
+                        RichText::new(pot_text)
                             .font(FontId::monospace(14.0))
                             .strong()
                             .color(if is_on {
@@ -193,12 +226,12 @@ impl eframe::App for BinaryCalculatorApp {
                         child_ui.painter().circle_filled(
                             led_center,
                             13.0,
-                            Color32::from_rgba_unmultiplied(250, 204, 21, 70),
+                            Color32::from_rgba_unmultiplied(250, 21, 21, 70),
                         );
                         child_ui.painter().circle_filled(
                             led_center,
                             9.0,
-                            Color32::from_rgb(250, 204, 21),
+                            Color32::from_rgb(250, 10, 11),
                         );
                     } else {
                         child_ui.painter().circle_filled(
@@ -208,10 +241,11 @@ impl eframe::App for BinaryCalculatorApp {
                         );
                     }
 
-                    child_ui.add_space(4.0);
+                    child_ui.add_space(6.0);
 
+                    // Dezimalwert (immer sichtbar) – fixe Größe in beiden Modi
                     child_ui.label(
-                        RichText::new(format!("{} Pkt.", place_value))
+                        RichText::new(format!("{}", place_value))
                             .font(FontId::proportional(18.0))
                             .strong()
                             .color(if is_on {
@@ -221,36 +255,44 @@ impl eframe::App for BinaryCalculatorApp {
                             }),
                     );
 
-                    child_ui.add_space(8.0);
+                    child_ui.add_space(4.0);
 
-                    child_ui.label(
-                        RichText::new(if is_on { "1" } else { "0" })
-                            .font(FontId::monospace(36.0))
-                            .strong()
-                            .color(if is_on {
-                                Color32::from_rgb(74, 222, 128)
-                            } else {
-                                Color32::from_rgb(248, 113, 113)
-                            }),
-                    );
+                    // "AN"/"AUS" – immer anzeigen (fixe Größe)
+                    if is_on {
+                        child_ui.label(
+                            RichText::new("1")
+                                .font(FontId::monospace(36.0))
+                                .strong()
+                                .color(Color32::from_rgb(74, 222, 128)),
+                        );
 
-                    child_ui.add_space(8.0);
+                        child_ui.add_space(5.0);
+                        child_ui.label(
+                            RichText::new("AN")
+                                .font(FontId::proportional(11.5))
+                                .color(Color32::from_rgb(134, 239, 172)),
+                        );
+                    } else {
+                        child_ui.label(
+                            RichText::new("0")
+                                .font(FontId::monospace(36.0))
+                                .strong()
+                                .color(Color32::from_rgb(248, 113, 113)),
+                        );
 
-                    child_ui.label(
-                        RichText::new(if is_on { "AN" } else { "AUS" })
-                            .font(FontId::proportional(11.5))
-                            .color(if is_on {
-                                Color32::from_rgb(134, 239, 172)
-                            } else {
-                                Color32::DARK_GRAY
-                            }),
-                    );
+                        child_ui.add_space(5.0);
+                        child_ui.label(
+                            RichText::new("AUS")
+                                .font(FontId::proportional(11.5))
+                                .color(Color32::DARK_GRAY),
+                        );
+                    }
                 }
             });
 
             ui.add_space(12.0);
 
-            // --- RECHENWEG & ERGEBNIS-ANZEIGE ---
+            // --- RECHENWEG & ERGEBNIS-ANZEIGE (fixe Fontgrößen) ---
             egui::Frame::group(ui.style())
                 .fill(Color32::from_rgb(20, 24, 33))
                 .corner_radius(CornerRadius::same(8))
@@ -277,9 +319,14 @@ impl eframe::App for BinaryCalculatorApp {
                                 "UNGERADE Zahl (1. Bit rechts steht auf 1)"
                             };
                             ui.label(
-                                RichText::new(format!("• Eigenschaft: {}", parity_text))
-                                    .font(FontId::proportional(13.5))
-                                    .color(Color32::from_rgb(148, 163, 184)),
+                                if self.is_simple_mode {
+                                    RichText::new(format!(" "))
+                                        .font(FontId::proportional(13.5))
+                                } else {
+                                    RichText::new(format!("• Eigenschaft: {}", parity_text))
+                                        .font(FontId::proportional(13.5))
+                                        .color(Color32::from_rgb(148, 163, 184))
+                                }
                             );
 
                             ui.label(
@@ -298,7 +345,7 @@ impl eframe::App for BinaryCalculatorApp {
                             );
                             ui.label(
                                 RichText::new(format!(
-                                    "Binär (1 Byte): {:04b} {:04b}₂   |   Hex: 0x{:02X}",
+                                    "Binär: {:04b} {:04b}₂   |   Hex: 0x{:02X}",
                                     self.value >> 4,
                                     self.value & 0x0F,
                                     self.value
@@ -310,7 +357,7 @@ impl eframe::App for BinaryCalculatorApp {
                     });
                 });
 
-            // --- STEUERUNG: SCHIEBEREGLER & BIT-OPERATIONEN ---
+            // --- STEUERUNG: SCHIEBEREGLER & BIT-OPERATIONEN (fixe Fontgröße) ---
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new("Dezimalwert wählen (0–255):")
@@ -345,45 +392,53 @@ impl eframe::App for BinaryCalculatorApp {
                 }
             });
 
-            // --- SCHNELLWAHL-BUTTONS AUS DEM ARBEITSBLATT ---
+            // --- SCHNELLWAHL-BUTTONS AUS DEM ARBEITSBLATT (fixe Fontgröße) ---
             ui.horizontal_wrapped(|ui| {
                 ui.label(
-                    RichText::new("Beispiele aus dem Lehrbogen & Arbeitsblatt:")
-                        .font(FontId::proportional(13.5))
-                        .color(Color32::LIGHT_GRAY),
+                    if self.is_simple_mode {
+                        RichText::new(" ")
+                            .font(FontId::proportional(13.5))
+                            .color(Color32::LIGHT_GRAY)
+                    } else {
+                        RichText::new("Beispiele aus dem Lehrbogen & Arbeitsblatt:")
+                            .font(FontId::proportional(13.5))
+                            .color(Color32::LIGHT_GRAY)
+                    }
                 );
 
-                let presets: &[(&str, u8)] = &[
-                    ("Reset (0)", 0),
-                    ("Lehrbogen Bsp. A (22)", 22),
-                    ("Lehrbogen Bsp. B (13)", 13),
-                    ("Aufgabe 1b (57)", 57),
-                    ("Aufgabe 2a (42)", 42),
-                    ("Aufgabe 2c (173)", 173),
-                    ("ASCII 'C' (67)", 67),
-                    ("ASCII 'O' (79)", 79),
-                    ("ASCII 'D' (68)", 68),
-                    ("ASCII 'E' (69)", 69),
-                    ("Max Byte (255)", 255),
-                ];
+                if !self.is_simple_mode {
+                    let presets: &[(&str, u8)] = &[
+                        ("Reset (0)", 0),
+                        ("Lehrbogen Bsp. A (22)", 22),
+                        ("Lehrbogen Bsp. B (13)", 13),
+                        ("Aufgabe 1b (57)", 57),
+                        ("Aufgabe 2a (42)", 42),
+                        ("Aufgabe 2c (173)", 173),
+                        ("ASCII 'C' (67)", 67),
+                        ("ASCII 'O' (79)", 79),
+                        ("ASCII 'D' (68)", 68),
+                        ("ASCII 'E' (69)", 69),
+                        ("Max Byte (255)", 255),
+                    ];
 
-                for &(label, preset_val) in presets {
-                    let is_active = self.value == preset_val;
-                    let btn = egui::Button::new(
-                        RichText::new(label).color(if is_active {
-                            Color32::BLACK
+                    for &(label, preset_val) in presets {
+                        let is_active = self.value == preset_val;
+                        let btn = egui::Button::new(
+                            RichText::new(label).color(if is_active {
+                                Color32::BLACK
+                            } else {
+                                Color32::WHITE
+                            }),
+                        )
+                        .fill(if is_active {
+                            Color32::from_rgb(96, 165, 250)
                         } else {
-                            Color32::WHITE
-                        }),
-                    )
-                    .fill(if is_active {
-                        Color32::from_rgb(96, 165, 250)
-                    } else {
-                        Color32::from_rgb(51, 65, 85)
-                    });
+                            Color32::from_rgb(51, 65, 85)
+                        });
 
-                    if ui.add(btn).clicked() {
-                        self.value = preset_val;
+                        if ui.add(btn).clicked() {
+                            self.value = preset_val;
+                        }
                     }
                 }
             });
