@@ -1,4 +1,4 @@
-use eframe::egui::{self, Color32, CornerRadius, FontId, RichText, Sense, Stroke, Vec2};
+use eframe::egui::{self, Color32, CornerRadius, FontId, RichText, Sense, Stroke, StrokeKind, Vec2};
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
@@ -68,34 +68,8 @@ impl BinaryCalculatorApp {
             48..=57 => format!("'{}' (Ziffer)", self.value as char),
             32 => "' ' (Leerzeichen / Space)".to_string(),
             33..=126 => format!("'{}' (Sonderzeichen)", self.value as char),
-            _ => "Kein druckbares Standard-ASCII-Zeichen".to_string(),
+            _ => "Kein druckbares Standard-ASCII-Zeichen (Steuerzeichen / erweitert)".to_string(),
         }
-    }
-
-    fn card_bg(&self, bit_index: u8) -> Color32 {
-        let is_on = self.is_bit_set(bit_index);
-        if is_on {
-            Color32::from_rgb(23, 58, 117)
-        } else {
-            Color32::DARK_GRAY
-        }
-    }
-
-    fn card_border(&self, bit_index: u8) -> (Color32, f32) {
-        let is_on = self.is_bit_set(bit_index);
-        if is_on {
-            (Color32::from_rgb(96, 165, 250), 2.5)
-        } else {
-            (Color32::DARK_GRAY, 1.5)
-        }
-    }
-
-    fn card_width(&self, available_width: f32, spacing: f32, bit_index: u8) -> f32 {
-        ((available_width - spacing * 7.0) / 8.0_f32).max(80.0)
-    }
-
-    fn x_pos(&self, available_width: f32, spacing: f32, card_width: f32, bit_index: u8) -> f32 {
-        (available_width - spacing * 7.0) / 8.0_f32 * ((bit_index as f32 + 1.0).recip())
     }
 }
 
@@ -123,13 +97,13 @@ impl eframe::App for BinaryCalculatorApp {
             ui.vertical_centered(|ui| {
                 ui.add_space(4.0);
                 ui.label(
-                    RichText::new("Die geheime Sprache der Computer: 8-Bit-Binärrechner")
+                    RichText::new("Die Sprache der Computer: 8-Bit-Binärrechner")
                         .font(FontId::proportional(24.0))
                         .strong()
                         .color(Color32::from_rgb(147, 197, 253)),
                 );
                 ui.label(
-                    RichText::new("Klicke auf die 8 Zauberkarten (oder drücke die Tasten 1–8), um Bits zwischen AN (1) und AUS (0) umzuschalten.")
+                    RichText::new("Klicke auf die 8 Karten (oder drücke die Tasten 1–8), um Bits zwischen AN (1) und AUS (0) umzuschalten.")
                         .font(FontId::proportional(14.0))
                         .color(Color32::LIGHT_GRAY),
                 );
@@ -137,127 +111,144 @@ impl eframe::App for BinaryCalculatorApp {
 
             ui.separator();
 
-            // --- DIE 8 ZAUBERKARTEN (VON LINKS 128 BIS RECHTS 1) ---
+            // --- DIE 8 Karten (VON LINKS 128 BIS RECHTS 1) ---
             ui.horizontal(|ui| {
-                let available_width = ui.available_width() as f32;
-                let spacing = 8.0f32;
+                let available_width = ui.available_width();
+                let spacing = 8.0;
+                let card_width = (available_width - spacing * 7.0) / 8.0;
+                ui.spacing_mut().item_spacing.x = spacing;
 
                 for bit_index in (0..8).rev() {
                     let is_on = self.is_bit_set(bit_index);
                     let place_value = 1u16 << bit_index;
                     let card_number = bit_index + 1;
 
-                    // Karte-Allokation mit Sense::click (egui 0.31 API)
                     let (rect, response) = ui.allocate_exact_size(
-                        Vec2::new(self.card_width(ui.available_width() as f32, spacing, bit_index), 215.0),
+                        Vec2::new(card_width.max(80.0), 215.0),
                         Sense::click(),
                     );
-
-                    // Hover-Erkennung für die Mausposition
-                    let hovered = response.hovered();
 
                     if response.clicked() {
                         self.toggle_bit(bit_index);
                     }
 
-                    if hovered {
+                    if response.hovered() {
                         ctx.set_cursor_icon(egui::CursorIcon::PointingHand);
                     }
 
-                    let bg_color = self.card_bg(bit_index);
-                    let (border_color, stroke_width) = self.card_border(bit_index);
+                    let bg_color = if is_on {
+                        if response.hovered() {
+                            Color32::from_rgb(30, 74, 150)
+                        } else {
+                            Color32::from_rgb(23, 58, 117)
+                        }
+                    } else if response.hovered() {
+                        Color32::from_rgb(45, 50, 62)
+                    } else {
+                        Color32::from_rgb(30, 34, 42)
+                    };
 
-                    // Rahmen um die Karte
+                    let border_color = if is_on {
+                        Color32::from_rgb(96, 165, 250)
+                    } else {
+                        Color32::from_rgb(71, 85, 105)
+                    };
+
                     ui.painter().rect(
                         rect,
                         CornerRadius::same(10),
                         bg_color,
-                        Stroke::new(stroke_width, border_color),
-                        egui::StrokeKind::Inside,
+                        Stroke::new(if is_on { 2.5 } else { 1.5 }, border_color),
+                        StrokeKind::Inside,
                     );
 
                     let mut child_ui = ui.new_child(
                         egui::UiBuilder::new()
-                            .max_rect(rect)
+                            .max_rect(rect.shrink(6.0))
                             .layout(egui::Layout::top_down(egui::Align::Center)),
                     );
 
-                    // Karten-Nummer (visuell, nicht klickbar für Selektion)
                     child_ui.label(
                         RichText::new(format!("Karte {}", card_number))
-                            .font(FontId::monospace(14.0))
-                            .strong()
-                            .color(if is_on { Color32::from_rgb(191, 219, 254) } else { Color32::GRAY }),
+                            .font(FontId::proportional(12.0))
+                            .color(Color32::from_rgb(148, 163, 184)),
                     );
 
-                    // Platzhalter für den Stellenwert (wird nicht markiert beim Klicken)
                     child_ui.label(
                         RichText::new(format!("2^{}", bit_index))
                             .font(FontId::monospace(14.0))
                             .strong()
-                            .color(if is_on { Color32::from_rgb(191, 219, 254) } else { Color32::GRAY }),
+                            .color(if is_on {
+                                Color32::from_rgb(191, 219, 254)
+                            } else {
+                                Color32::GRAY
+                            }),
                     );
 
                     child_ui.add_space(6.0);
 
-                    // LED-Indikator
                     let (led_rect, _) = child_ui.allocate_exact_size(Vec2::new(26.0, 26.0), Sense::hover());
                     let led_center = led_rect.center();
                     if is_on {
-                        child_ui.painter().circle_filled(led_center, 13.0, Color32::from_rgba_unmultiplied(250, 204, 21, 70));
-                        child_ui.painter().circle_filled(led_center, 9.0, Color32::from_rgb(250, 204, 21));
-                    } else {
-                        child_ui.painter().circle_filled(led_center, 9.0, Color32::from_rgb(55, 65, 81));
-                    }
-
-                    child_ui.add_space(4.0);
-
-                    // Platzhalter für den Stellenwert (wird nicht markiert beim Klicken)
-                    if is_on {
-                        child_ui.label(
-                            RichText::new(format!("{} Pkt.", place_value))
-                                .font(FontId::proportional(18.0))
-                                .strong()
-                                .color(Color32::WHITE),
+                        child_ui.painter().circle_filled(
+                            led_center,
+                            13.0,
+                            Color32::from_rgba_unmultiplied(250, 204, 21, 70),
                         );
-                        child_ui.add_space(4.0);
-
-                        child_ui.label(
-                            RichText::new("1")
-                                .font(FontId::monospace(36.0))
-                                .strong()
-                                .color(Color32::from_rgb(74, 222, 128)),
+                        child_ui.painter().circle_filled(
+                            led_center,
+                            9.0,
+                            Color32::from_rgb(250, 204, 21),
                         );
                     } else {
-                        child_ui.label(
-                            RichText::new(format!("{} Pkt.", place_value))
-                                .font(FontId::proportional(18.0))
-                                .strong()
-                                .color(Color32::from_rgb(100, 116, 139)),
-                        );
-                        child_ui.add_space(4.0);
-
-                        child_ui.label(
-                            RichText::new("0")
-                                .font(FontId::monospace(36.0))
-                                .strong()
-                                .color(Color32::from_rgb(248, 113, 113)),
+                        child_ui.painter().circle_filled(
+                            led_center,
+                            9.0,
+                            Color32::from_rgb(55, 65, 81),
                         );
                     }
 
                     child_ui.add_space(4.0);
 
                     child_ui.label(
-                        RichText::new(if is_on { "AN (zählt)" } else { "AUS (0)" })
-                            .font(FontId::proportional(11.5))
-                            .color(if is_on { Color32::from_rgb(134, 239, 172) } else { Color32::DARK_GRAY }),
+                        RichText::new(format!("{} Pkt.", place_value))
+                            .font(FontId::proportional(18.0))
+                            .strong()
+                            .color(if is_on {
+                                Color32::WHITE
+                            } else {
+                                Color32::from_rgb(100, 116, 139)
+                            }),
                     );
 
                     child_ui.add_space(8.0);
+
+                    child_ui.label(
+                        RichText::new(if is_on { "1" } else { "0" })
+                            .font(FontId::monospace(36.0))
+                            .strong()
+                            .color(if is_on {
+                                Color32::from_rgb(74, 222, 128)
+                            } else {
+                                Color32::from_rgb(248, 113, 113)
+                            }),
+                    );
+
+                    child_ui.add_space(8.0);
+
+                    child_ui.label(
+                        RichText::new(if is_on { "AN" } else { "AUS" })
+                            .font(FontId::proportional(11.5))
+                            .color(if is_on {
+                                Color32::from_rgb(134, 239, 172)
+                            } else {
+                                Color32::DARK_GRAY
+                            }),
+                    );
                 }
             });
 
-            ui.add_space(4.0);
+            ui.add_space(12.0);
 
             // --- RECHENWEG & ERGEBNIS-ANZEIGE ---
             egui::Frame::group(ui.style())
@@ -292,7 +283,7 @@ impl eframe::App for BinaryCalculatorApp {
                             );
 
                             ui.label(
-                                RichText::new(format!("• ASCII-Code: {}", self.ascii_description()))
+                                RichText::new(format!("• ASCII-Code:  {}", self.ascii_description()))
                                     .font(FontId::proportional(13.5))
                                     .color(Color32::from_rgb(148, 163, 184)),
                             );
@@ -379,9 +370,17 @@ impl eframe::App for BinaryCalculatorApp {
                 for &(label, preset_val) in presets {
                     let is_active = self.value == preset_val;
                     let btn = egui::Button::new(
-                        RichText::new(label).color(if is_active { Color32::BLACK } else { Color32::WHITE }),
+                        RichText::new(label).color(if is_active {
+                            Color32::BLACK
+                        } else {
+                            Color32::WHITE
+                        }),
                     )
-                    .fill(if is_active { Color32::from_rgb(96, 165, 250) } else { Color32::from_rgb(51, 65, 85) });
+                    .fill(if is_active {
+                        Color32::from_rgb(96, 165, 250)
+                    } else {
+                        Color32::from_rgb(51, 65, 85)
+                    });
 
                     if ui.add(btn).clicked() {
                         self.value = preset_val;
